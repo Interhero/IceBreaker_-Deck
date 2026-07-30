@@ -1363,6 +1363,17 @@ async function draw(forcedCat) {
 
 cardEl.addEventListener('click', () => draw());
 drawBtn.addEventListener('click', e => { e.stopPropagation(); draw(); });
+
+// Pre-draw initial card on launch so an active prompt is flipped and ready immediately
+(async function initLaunchCard() {
+  const initialCat = pickCat() || Object.keys(META)[0];
+  // Asynchronously request fresh AI prompt for initial card
+  const fresh = await generateBatch(initialCat, 1);
+  if (fresh.length > 0) {
+    buffer[initialCat].unshift(fresh[0]);
+  }
+  draw(initialCat);
+})();
 </script>
 </body>
 </html>
