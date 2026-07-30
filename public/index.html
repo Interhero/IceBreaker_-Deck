@@ -146,6 +146,10 @@
     opacity:0; transform:translateY(20px);
     animation:welcome-icon-in 0.8s 0.2s ease-out forwards, welcome-float 3s 1s ease-in-out infinite;
   }
+  .welcome-icon svg {
+    color: var(--gold);
+    filter: drop-shadow(0 0 10px rgba(201, 169, 110, 0.45));
+  }
   @keyframes welcome-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
   @keyframes welcome-icon-in{to{opacity:1;transform:translateY(0)}}
 
@@ -842,7 +846,12 @@
      ═══════════════════════════════════════ -->
 <div class="welcome" id="welcome">
   <div class="welcome-inner">
-    <div class="welcome-icon">❄️</div>
+    <div class="welcome-icon">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v20M2 12h20M20 16l-4-4 4-4M4 8l4 4-4 4M16 4l-4 4-4-4M8 20l4-4 4 4" />
+        <path d="M7.5 7.5l9 9M16.5 7.5l-9 9" opacity="0.4" />
+      </svg>
+    </div>
     <h1 class="welcome-title">Icebreaker</h1>
     <p class="welcome-subtitle">Break the ice and forge<br>meaningful connections</p>
     <p class="welcome-desc">
