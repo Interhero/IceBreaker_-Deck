@@ -1072,7 +1072,10 @@ const META = {
 /* ═══════════════════════════════════════
    STATE & PERSISTENT ANTI-REDUNDANCY
    ═══════════════════════════════════════ */
-const TARGET_BUFFER = 2;
+/* ═══════════════════════════════════════
+   STATE & PERSISTENT ANTI-REDUNDANCY
+   ═══════════════════════════════════════ */
+const TARGET_BUFFER = 4; // Deep buffer of 4 prompts per category for instant draws
 const HISTORY_CAP = 60;
 const STORAGE_KEY = 'icebreaker_seen_history_v2';
 
@@ -1191,10 +1194,12 @@ let aiPromptsSet = new Set();
 async function generateBatch(cat, n) {
   const recent = history[cat].slice(-HISTORY_CAP);
   try {
+    // Request a batch of 4 AI prompts in ONE fast API request
+    const batchCount = Math.max(n, 4);
     const r = await fetch("/api/generate", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({cat, recentHistory:recent, count:n})
+      body:JSON.stringify({cat, recentHistory:recent, count:batchCount})
     });
     if (!r.ok) { const e = await r.json(); throw new Error(e.error || `${r.status}`); }
     const {prompts:arr} = await r.json();
@@ -1232,7 +1237,8 @@ async function topUp(cat) {
   }
   fetching[cat] = true;
   refreshDots();
-  const fresh = await generateBatch(cat, TARGET_BUFFER - buffer[cat].length);
+  const need = TARGET_BUFFER - buffer[cat].length;
+  const fresh = await generateBatch(cat, need);
   if (fresh.length > 0) {
     buffer[cat].push(...fresh);
   }
@@ -1240,9 +1246,9 @@ async function topUp(cat) {
   refreshDots();
 }
 
-// Background AI warm-up for all categories
+// Fast parallel background AI warm-up (200ms stagger) for lightning-fast readiness
 const randomizedCats = shuffleArray(Object.keys(META));
-randomizedCats.forEach((cat, i) => setTimeout(() => topUp(cat), i * 2500));
+randomizedCats.forEach((cat, i) => setTimeout(() => topUp(cat), i * 200));
 
 /* ═══════════════════════════════════════
    DRAW CARD
