@@ -141,17 +141,14 @@
     background:linear-gradient(135deg,rgba(201,169,110,0.15),rgba(93,217,126,0.10));
     border:1px solid rgba(255,255,255,0.08);
     display:flex;align-items:center;justify-content:center;
-    font-size:36px;
     animation:welcome-float 3s ease-in-out infinite;
-    opacity:0; transform:translateY(20px);
-    animation:welcome-icon-in 0.8s 0.2s ease-out forwards, welcome-float 3s 1s ease-in-out infinite;
   }
   .welcome-icon svg {
     color: var(--gold);
-    filter: drop-shadow(0 0 10px rgba(201, 169, 110, 0.45));
+    filter: drop-shadow(0 0 12px rgba(201, 169, 110, 0.6));
+    width: 44px; height: 44px;
   }
   @keyframes welcome-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-  @keyframes welcome-icon-in{to{opacity:1;transform:translateY(0)}}
 
   .welcome-title{
     font-family:'Playfair Display',Georgia,serif;
@@ -474,14 +471,13 @@
   .chip.loading .chip-status{color:var(--text-muted);}
   @keyframes pulse{0%,100%{opacity:0.25;transform:scale(1)}50%{opacity:0.55;transform:scale(1.05)}}
 
-  .chip .spinner{
-    position:absolute;inset:0;z-index:2;
-    display:flex;align-items:center;justify-content:center;
-    opacity:0;pointer-events:none;transition:opacity 0.3s;
+  .chip .spinner svg{
+    width:20px;height:20px;
+    transform-origin:center;
+    transform-box:fill-box;
+    animation:spin-ring 1.0s linear infinite;
   }
-  .chip.loading .spinner{opacity:1;}
-  .chip .spinner svg{width:20px;height:20px;animation:spin 1.1s linear infinite;}
-  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes spin-ring{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
   /* Online state */
   .chip.online .icon{opacity:1;}
@@ -529,10 +525,22 @@
   .card{
     width:100%;height:100%;position:relative;
     transform-style:preserve-3d;
-    transition:transform 0.72s var(--ease);
+    transition:transform 0.72s var(--ease), opacity 0.2s, filter 0.2s;
     cursor:pointer;
   }
   .card.flipped{transform:rotateY(180deg);}
+  .card.card-swap-out{
+    transform:rotateY(180deg) scale(0.93) translateY(8px) !important;
+    opacity:0.25 !important;
+    filter:blur(3px) !important;
+    transition:all 0.16s ease-in !important;
+  }
+  .card.card-swap-in{
+    transform:rotateY(180deg) scale(1) translateY(0) !important;
+    opacity:1 !important;
+    filter:blur(0) !important;
+    transition:all 0.32s var(--spring) !important;
+  }
 
   .face{
     position:absolute;inset:0;
@@ -1278,25 +1286,7 @@ async function topUp(cat) {
 const randomizedCats = shuffleArray(Object.keys(META));
 randomizedCats.forEach((cat, i) => setTimeout(() => topUp(cat), i * 3000));
 
-/* ═══════════════════════════════════════
-   PARTICLES
-   ═══════════════════════════════════════ */
-function emitParticles(cat) {
-  const stage = document.querySelector('.stage');
-  const color = getComputedStyle(document.documentElement)
-    .getPropertyValue(`--${META[cat].cls === 'wyr' ? 'wyr' : cat}`).trim();
-  for (let i = 0; i < 10; i++) {
-    const p = document.createElement('div');
-    p.className = 'particle';
-    const a = (Math.PI * 2 / 10) * i + Math.random() * 0.5;
-    const d = 55 + Math.random() * 70;
-    p.style.cssText = `left:50%;top:50%;background:${color};
-      --dx:${Math.cos(a)*d}px;--dy:${Math.sin(a)*d}px;
-      width:${3+Math.random()*3}px;height:${3+Math.random()*3}px;`;
-    stage.appendChild(p);
-    setTimeout(() => p.remove(), 800);
-  }
-}
+// Particle effect removed to eliminate unwanted center dot
 
 /* ═══════════════════════════════════════
    DRAW CARD
@@ -1346,10 +1336,12 @@ async function draw(forcedCat) {
   drawing = true;
   drawBtn.disabled = true;
 
-  // Unflip first if already flipped
-  if (cardEl.classList.contains('flipped')) {
-    cardEl.classList.remove('flipped');
-    await new Promise(r => setTimeout(r, 400));
+  const isAlreadyFlipped = cardEl.classList.contains('flipped');
+
+  // Fluid 3D card swap animation if already showing a card
+  if (isAlreadyFlipped) {
+    cardEl.classList.add('card-swap-out');
+    await new Promise(r => setTimeout(r, 160));
   }
 
   let prompt = null;
@@ -1378,10 +1370,16 @@ async function draw(forcedCat) {
   }
 
   showPrompt(cat, prompt);
-  cardEl.classList.add('flipped');
-  emitParticles(cat);
-  refreshDots();
 
+  if (isAlreadyFlipped) {
+    cardEl.classList.remove('card-swap-out');
+    cardEl.classList.add('card-swap-in');
+    setTimeout(() => cardEl.classList.remove('card-swap-in'), 320);
+  } else {
+    cardEl.classList.add('flipped');
+  }
+
+  refreshDots();
   drawing = false;
   drawBtn.disabled = false;
   activeCats.forEach(c => topUp(c));
