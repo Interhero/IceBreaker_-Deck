@@ -1335,10 +1335,10 @@ async function draw(forcedCat) {
 
   const isAlreadyFlipped = cardEl.classList.contains('flipped');
 
-  // Fluid 3D card swap animation if already showing a card
+  // True 3D Y-axis flip animation on every draw
   if (isAlreadyFlipped) {
-    cardEl.classList.add('card-swap-out');
-    await new Promise(r => setTimeout(r, 160));
+    cardEl.classList.add('flipping-out');
+    await new Promise(r => setTimeout(r, 220));
   }
 
   let prompt = null;
@@ -1366,12 +1366,14 @@ async function draw(forcedCat) {
       statusLine.textContent = '';
   }
 
+  // Update card content cleanly while edge-on during mid-flip
   showPrompt(cat, prompt);
 
   if (isAlreadyFlipped) {
-    cardEl.classList.remove('card-swap-out');
-    cardEl.classList.add('card-swap-in');
-    setTimeout(() => cardEl.classList.remove('card-swap-in'), 320);
+    cardEl.classList.remove('flipping-out');
+    cardEl.classList.add('flipping-in');
+    await new Promise(r => setTimeout(r, 320));
+    cardEl.classList.remove('flipping-in');
   } else {
     cardEl.classList.add('flipped');
   }
