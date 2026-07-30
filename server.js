@@ -109,9 +109,13 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`==================================================`);
-  console.log(` Icebreaker Deck App is running!`);
-  console.log(` Local URL: http://localhost:${PORT}`);
-  console.log(`==================================================`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`==================================================`);
+    console.log(` Icebreaker Deck App is running!`);
+    console.log(` Local URL: http://localhost:${PORT}`);
+    console.log(`==================================================`);
+  });
+}
+
+module.exports = app;
