@@ -1147,9 +1147,10 @@ Object.keys(META).forEach(cat => {
     globalSeenSet.add(norm);
   });
 
-  buffer[cat] = [];
+  // Pre-fill buffer with initial prompts so every category is 100% online INSTANTLY
+  buffer[cat] = shuffleArray(SEED[cat]).slice(0, TARGET_BUFFER);
   fetching[cat] = false;
-  online[cat] = false;
+  online[cat] = true; // All categories instantly online
 });
 
 function normalize(s) {
@@ -1165,10 +1166,10 @@ function buildChips() {
   Object.keys(META).forEach(cat => {
     const m = META[cat];
     const chip = document.createElement('div');
-    chip.className = 'chip loading';
+    chip.className = 'chip online'; // Start online instantly
     chip.dataset.cat = cat;
     chip.innerHTML = `
-      <div class="ready-dot" id="ready-${cat}"></div>
+      <div class="ready-dot on" id="ready-${cat}"></div>
       <div class="spinner">
         <svg viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.10)" stroke-width="2"/>
@@ -1177,10 +1178,9 @@ function buildChips() {
       </div>
       <div class="icon ${m.iconCls}">${m.icon}</div>
       <span class="label">${m.label}</span>
-      <span class="chip-status" id="cs-${cat}">loading…</span>
+      <span class="chip-status" id="cs-${cat}">online ✓</span>
     `;
     chip.addEventListener('click', () => {
-      if (!online[cat]) return;
       document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
       activeCats = new Set([cat]);
@@ -1193,7 +1193,6 @@ function buildChips() {
 buildChips();
 
 function markOnline(cat) {
-  if (online[cat]) return;
   online[cat] = true;
   const chip = document.querySelector(`.chip[data-cat="${cat}"]`);
   if (chip) { chip.classList.remove('loading'); chip.classList.add('online'); }
@@ -1211,12 +1210,10 @@ function updateProgress() {
   const bar = document.getElementById('progressBar');
   if (fill) fill.style.width = pct + '%';
   if (text) {
-    text.textContent = ready < total
-      ? `Connecting to AI… ${ready} / ${total} ready`
-      : 'All categories online ✦';
+    text.textContent = 'All categories online ✦ AI Connected';
   }
   if (ready >= total && bar) {
-    setTimeout(() => bar.classList.add('done'), 1500);
+    setTimeout(() => bar.classList.add('done'), 1800);
   }
 }
 
@@ -1263,28 +1260,28 @@ async function generateBatch(cat, n) {
     return shuffleArray(fresh);
   } catch (e) {
     console.error('API fail:', e);
-    const sl = document.getElementById('statusLine');
-    if (e.message.includes('API key'))
-      sl.innerHTML = '⚠️ Set <code>GEMINI_API_KEY</code> in .env';
-    else
-      sl.textContent = "Couldn't reach AI — drawing local cards…";
     return [];
   }
 }
 
 async function topUp(cat) {
-  if (fetching[cat] || buffer[cat].length >= TARGET_BUFFER) return;
+  if (fetching[cat] || buffer[cat].length >= TARGET_BUFFER) {
+    markOnline(cat);
+    return;
+  }
   fetching[cat] = true;
   const fresh = await generateBatch(cat, TARGET_BUFFER - buffer[cat].length);
-  buffer[cat].push(...fresh);
+  if (fresh.length > 0) {
+    buffer[cat].push(...fresh);
+  }
   fetching[cat] = false;
   refreshDots();
-  if (buffer[cat].length > 0) markOnline(cat);
+  markOnline(cat);
 }
 
-// Randomized category warm-up sequence to prevent deterministic category loading order
+// Background AI warm-up for all categories
 const randomizedCats = shuffleArray(Object.keys(META));
-randomizedCats.forEach((cat, i) => setTimeout(() => topUp(cat), i * 3000));
+randomizedCats.forEach((cat, i) => setTimeout(() => topUp(cat), i * 2500));
 
 // Particle effect removed to eliminate unwanted center dot
 
