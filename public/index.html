@@ -457,37 +457,27 @@
   }
   .chip.active .label{color:var(--text);}
 
-  /* Status label under chip */
-  .chip .chip-status{
-    position:relative;z-index:1;
-    font-size:8px;font-weight:600;letter-spacing:0.1em;
-    text-transform:uppercase;height:13px;line-height:13px;
-    transition:all 0.35s;
+  /* Loading state — spinner active ONLY when actively fetching from AI */
+  .chip .spinner{
+    position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:2;
+    opacity:0;pointer-events:none;transition:opacity 0.3s;
   }
-
-  /* Loading state */
-  .chip.loading{cursor:wait;pointer-events:none;}
-  .chip.loading .icon{opacity:0.35;animation:pulse 1.6s ease-in-out infinite;}
-  .chip.loading .chip-status{color:var(--text-muted);}
-  @keyframes pulse{0%,100%{opacity:0.25;transform:scale(1)}50%{opacity:0.55;transform:scale(1.05)}}
-
+  .chip.is-fetching .spinner{opacity:1;}
   .chip .spinner svg{
-    width:20px;height:20px;
+    width:16px;height:16px;
     transform-origin:center;
     transform-box:fill-box;
-    animation:spin-ring 1.0s linear infinite;
+    animation:spin-ring 0.9s linear infinite;
   }
   @keyframes spin-ring{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
-  /* Online state */
-  .chip.online .icon{opacity:1;}
-  .chip.online .chip-status{color:var(--green);}
+  /* Green dot — active ONLY when prompt is ready in buffer */
   .chip .ready-dot{
-    position:absolute;top:7px;right:9px;z-index:3;
-    width:6px;height:6px;border-radius:50%;
+    position:absolute;top:7px;right:8px;z-index:3;
+    width:7px;height:7px;border-radius:50%;
     background:var(--green);opacity:0;
-    transition:opacity 0.4s;
-    box-shadow:0 0 6px rgba(93,217,126,0.5);
+    transition:opacity 0.35s;
+    box-shadow:0 0 8px rgba(93,217,126,0.6);
   }
   .chip .ready-dot.on{opacity:1;}
 
@@ -525,21 +515,20 @@
   .card{
     width:100%;height:100%;position:relative;
     transform-style:preserve-3d;
-    transition:transform 0.72s var(--ease), opacity 0.2s, filter 0.2s;
+    transition:transform 0.65s var(--ease);
     cursor:pointer;
   }
   .card.flipped{transform:rotateY(180deg);}
-  .card.card-swap-out{
-    transform:rotateY(180deg) scale(0.93) translateY(8px) !important;
-    opacity:0.25 !important;
-    filter:blur(3px) !important;
-    transition:all 0.16s ease-in !important;
+
+  /* 60fps Keyframe 3D Card Flip Animation on Every Draw */
+  @keyframes flip3D {
+    0% { transform: rotateY(180deg) scale(1); }
+    45% { transform: rotateY(270deg) scale(0.93); opacity: 0.8; }
+    55% { transform: rotateY(270deg) scale(0.93); opacity: 0.8; }
+    100% { transform: rotateY(360deg) scale(1); }
   }
-  .card.card-swap-in{
-    transform:rotateY(180deg) scale(1) translateY(0) !important;
-    opacity:1 !important;
-    filter:blur(0) !important;
-    transition:all 0.32s var(--spring) !important;
+  .card.is-flipping {
+    animation: flip3D 0.53s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
   }
 
   .face{
@@ -958,11 +947,6 @@
 
   <div class="categories" id="categories"></div>
 
-  <div class="progress-bar" id="progressBar">
-    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-    <div class="progress-text" id="progressText">Connecting to AI… 0 / 6 ready</div>
-  </div>
-
   <div class="stage">
     <div class="card" id="card">
       <div class="face back">
@@ -984,7 +968,7 @@
           </div>
           <div class="prompt-text" id="frontText"></div>
           <div class="card-footer">
-            <div class="ai-badge"><span class="sparkle">✦</span> AI Generated &bull; <span style="color:var(--green)">✓ Guaranteed Unique</span></div>
+            <div class="ai-badge" id="aiBadge"><span class="sparkle">✦</span> AI Generated &bull; <span style="color:var(--green)">✓ Guaranteed Unique</span></div>
             <div class="card-counter" id="frontIndex"></div>
           </div>
         </div>
@@ -1166,25 +1150,23 @@ function buildChips() {
   Object.keys(META).forEach(cat => {
     const m = META[cat];
     const chip = document.createElement('div');
-    chip.className = 'chip online'; // Start online instantly
+    chip.className = 'chip';
     chip.dataset.cat = cat;
     chip.innerHTML = `
-      <div class="ready-dot on" id="ready-${cat}"></div>
-      <div class="spinner">
+      <div class="ready-dot ${buffer[cat].length > 0 ? 'on' : ''}" id="ready-${cat}"></div>
+      <div class="spinner" id="spinner-${cat}">
         <svg viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="10" stroke="rgba(255,255,255,0.10)" stroke-width="2"/>
-          <path d="M12 2a10 10 0 0 1 10 10" stroke="rgba(255,255,255,0.45)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"/>
         </svg>
       </div>
       <div class="icon ${m.iconCls}">${m.icon}</div>
       <span class="label">${m.label}</span>
-      <span class="chip-status" id="cs-${cat}">online ✓</span>
     `;
     chip.addEventListener('click', () => {
       document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
       activeCats = new Set([cat]);
-      topUp(cat);
       draw(cat);
     });
     el.appendChild(chip);
@@ -1192,41 +1174,20 @@ function buildChips() {
 }
 buildChips();
 
-function markOnline(cat) {
-  online[cat] = true;
-  const chip = document.querySelector(`.chip[data-cat="${cat}"]`);
-  if (chip) { chip.classList.remove('loading'); chip.classList.add('online'); }
-  const cs = document.getElementById(`cs-${cat}`);
-  if (cs) cs.textContent = 'online ✓';
-  updateProgress();
-}
-
-function updateProgress() {
-  const total = Object.keys(META).length;
-  const ready = Object.values(online).filter(Boolean).length;
-  const pct = Math.round((ready / total) * 100);
-  const fill = document.getElementById('progressFill');
-  const text = document.getElementById('progressText');
-  const bar = document.getElementById('progressBar');
-  if (fill) fill.style.width = pct + '%';
-  if (text) {
-    text.textContent = 'All categories online ✦ AI Connected';
-  }
-  if (ready >= total && bar) {
-    setTimeout(() => bar.classList.add('done'), 1800);
-  }
-}
-
 function refreshDots() {
   Object.keys(META).forEach(cat => {
     const d = document.getElementById(`ready-${cat}`);
     if (d) d.classList.toggle('on', buffer[cat].length > 0);
+    const chip = document.querySelector(`.chip[data-cat="${cat}"]`);
+    if (chip) chip.classList.toggle('is-fetching', !!fetching[cat]);
   });
 }
 
 /* ═══════════════════════════════════════
    API
    ═══════════════════════════════════════ */
+let aiPromptsSet = new Set();
+
 async function generateBatch(cat, n) {
   const recent = history[cat].slice(-HISTORY_CAP);
   try {
@@ -1252,6 +1213,7 @@ async function generateBatch(cat, n) {
       
       seenSet[cat].add(k);
       globalSeenSet.add(k);
+      aiPromptsSet.add(k); // Mark as AI Generated
       history[cat].push(c);
       fresh.push(c);
     });
@@ -1266,24 +1228,21 @@ async function generateBatch(cat, n) {
 
 async function topUp(cat) {
   if (fetching[cat] || buffer[cat].length >= TARGET_BUFFER) {
-    markOnline(cat);
     return;
   }
   fetching[cat] = true;
+  refreshDots();
   const fresh = await generateBatch(cat, TARGET_BUFFER - buffer[cat].length);
   if (fresh.length > 0) {
     buffer[cat].push(...fresh);
   }
   fetching[cat] = false;
   refreshDots();
-  markOnline(cat);
 }
 
 // Background AI warm-up for all categories
 const randomizedCats = shuffleArray(Object.keys(META));
 randomizedCats.forEach((cat, i) => setTimeout(() => topUp(cat), i * 2500));
-
-// Particle effect removed to eliminate unwanted center dot
 
 /* ═══════════════════════════════════════
    DRAW CARD
@@ -1300,6 +1259,18 @@ function showPrompt(cat, text) {
   document.getElementById('frontCat').className = `cat-label text-${m.cls}`;
   document.getElementById('frontText').textContent = text;
   document.getElementById('frontAccent').className = `front-accent accent-${m.cls}`;
+  
+  // Dynamic Badge: AI Generated vs Starter Deck
+  const isAi = aiPromptsSet.has(normalize(text));
+  const badgeEl = document.getElementById('aiBadge');
+  if (badgeEl) {
+    if (isAi) {
+      badgeEl.innerHTML = `<span class="sparkle" style="color:var(--gold)">✦</span> AI Generated &bull; <span style="color:var(--green)">✓ Guaranteed Unique</span>`;
+    } else {
+      badgeEl.innerHTML = `<span class="sparkle">🌱</span> Starter Deck &bull; <span style="color:var(--green)">✓ Guaranteed Unique</span>`;
+    }
+  }
+
   totalDrawn++;
   document.getElementById('frontIndex').textContent = `#${totalDrawn}`;
 }
