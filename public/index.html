@@ -521,14 +521,13 @@
   .card.flipped{transform:rotateY(180deg);}
 
   /* 60fps Keyframe 3D Card Flip Animation on Every Draw */
-  @keyframes flip3D {
+  @keyframes flipCard {
     0% { transform: rotateY(180deg) scale(1); }
-    45% { transform: rotateY(270deg) scale(0.93); opacity: 0.8; }
-    55% { transform: rotateY(270deg) scale(0.93); opacity: 0.8; }
+    50% { transform: rotateY(270deg) scale(0.90); opacity: 0.7; }
     100% { transform: rotateY(360deg) scale(1); }
   }
   .card.is-flipping {
-    animation: flip3D 0.53s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+    animation: flipCard 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
   }
 
   .face{
@@ -1312,10 +1311,13 @@ async function draw(forcedCat) {
 
   const isAlreadyFlipped = cardEl.classList.contains('flipped');
 
-  // True 3D Y-axis flip animation on every draw
+  // Trigger 3D Y-axis flip animation on every draw
   if (isAlreadyFlipped) {
-    cardEl.classList.add('flipping-out');
-    await new Promise(r => setTimeout(r, 220));
+    cardEl.classList.remove('is-flipping');
+    void cardEl.offsetWidth; // Force CSS reflow to re-trigger animation
+    cardEl.classList.add('is-flipping');
+    // Wait 250ms for card to turn edge-on to 270°
+    await new Promise(r => setTimeout(r, 250));
   }
 
   let prompt = null;
@@ -1325,33 +1327,18 @@ async function draw(forcedCat) {
   }
 
   if (!prompt) {
-    tapLabel.textContent = 'writing fresh card…';
-    backIcon.classList.add('spin');
-    statusLine.textContent = 'Generating a fresh prompt…';
-    const fresh = await generateBatch(cat, 1);
-    backIcon.classList.remove('spin');
-    tapLabel.textContent = 'choose a category';
-    if (fresh.length) {
-      prompt = fresh[0];
-      statusLine.textContent = '';
-    } else {
-      prompt = SEED[cat][Math.floor(Math.random() * SEED[cat].length)];
-      statusLine.textContent = 'Offline mode — local deck';
-    }
-  } else {
-    if (!statusLine.textContent.includes('API key'))
-      statusLine.textContent = '';
+    prompt = SEED[cat][Math.floor(Math.random() * SEED[cat].length)];
   }
 
-  // Update card content cleanly while edge-on during mid-flip
+  // Update card content cleanly while edge-on at 270° during mid-flip
   showPrompt(cat, prompt);
 
   if (isAlreadyFlipped) {
-    cardEl.classList.remove('flipping-out');
-    cardEl.classList.add('flipping-in');
-    await new Promise(r => setTimeout(r, 320));
-    cardEl.classList.remove('flipping-in');
+    // Wait for flip completion (300ms)
+    await new Promise(r => setTimeout(r, 300));
+    cardEl.classList.remove('is-flipping');
   } else {
+    // Initial flip from back face
     cardEl.classList.add('flipped');
   }
 
